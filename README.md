@@ -18,6 +18,19 @@ Applicazione web (HTML + JavaScript, nessun build) per creare e gestire **più s
 - **Glossario**: abilità, caratteristiche, armature, armi, condizioni, regole, talenti, classi, razze, con ricerca.
 - **Anteprima 3D** (Three.js): modello generato da razza (altezza, corporatura, orecchie, corna, coda, zanne, barba, testa draconica), caratteristiche (FOR → spalle e braccia, COS → torso, DES → snellezza, CAR → portamento e rifiniture), classe (cappucci, mantelli, vesti, aure magiche), armatura e prima arma. Atmosfera cupa: luce di braciere tremolante, nebbia fredda, braci, bloom, grading desaturato, vignettatura e grana. Esporta il ritratto in PNG.
 
+## Dati online: D&D 5e API
+
+L'app usa la **[D&D 5e API](https://www.dnd5eapi.co)** (dati SRD 5.1, gratuita, senza chiave, CORS aperto) per:
+
+| Funzione | Endpoint |
+|---|---|
+| Grimorio: incantesimi della propria classe filtrati per livello, con dettagli, danni scalati al livello del personaggio/slot e tiri | `/api/2014/classes/{classe}/spells`, `/api/2014/spells/{index}` |
+| Testi ufficiali dei privilegi nel wizard di avanzamento e nella scheda (anche sottoclassi SRD) | `/api/2014/classes/{classe}/levels/{n}`, `/api/2014/subclasses/{sub}/levels/{n}`, `/api/2014/features/{index}` |
+| Forma selvatica: bestie con GS e limiti di nuoto/volo del tuo druido (Circolo della Luna incluso), con immagini e blocco statistiche con tiri | GraphQL `/graphql/2014` (`monsters(type: "beast")`), `/api/2014/monsters/{index}` |
+| Glossario online: incantesimi, oggetti magici, mostri | `/api/2014/spells`, `/api/2014/magic-items`, `/api/2014/monsters` |
+
+Le risposte vengono salvate in cache nel browser per 30 giorni; quello che hai già consultato resta disponibile anche offline. Gli incantesimi aggiunti alla scheda salvano un riassunto (livello, scuola, danni, CD) così i tiri funzionano senza rete. I testi SRD sono in inglese. Contenuti SRD 5.1 © Wizards of the Coast, licenza CC-BY-4.0.
+
 ## Avvio
 
 Serve un server statico (i moduli ES non funzionano da `file://`):
@@ -39,6 +52,8 @@ js/app.js          interfaccia e schede
 js/wizards.js      creazione personaggio e avanzamento di livello
 js/rules.js        calcoli (modificatori, CA, PF, slot, risorse, requisiti)
 js/viewer3d.js     scena e modello 3D procedurale
+js/api.js          client D&D 5e API con cache
+js/srd.js          grimorio, Forma selvatica, mostri, privilegi SRD
 js/dice.js         parser e lanciatore di dadi
 js/storage.js      salvataggio ed esportazione
 js/data/           razze, classi, talenti, glossario
@@ -47,4 +62,4 @@ vendor/three/      Three.js r160
 
 ## Note
 
-I dati di gioco sono riassunti in italiano a scopo di consultazione; per i testi completi fai riferimento ai manuali ufficiali o all'SRD 5.1. Gli incantesimi si inseriscono a mano. Lo stile grafico si ispira all'estetica dark fantasy in generale e non usa asset di altri giochi.
+I dati di gioco sono riassunti in italiano a scopo di consultazione; per i testi completi fai riferimento ai manuali ufficiali o all'SRD 5.1. Gli incantesimi si possono scegliere dal grimorio SRD o inserire a mano (per quelli non SRD). Lo stile grafico si ispira all'estetica dark fantasy in generale e non usa asset di altri giochi.

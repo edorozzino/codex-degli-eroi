@@ -7,6 +7,7 @@ import { AB, mod, fmt, derive, multiclassOptions, featAvailability, asiSuggestio
 import { newCharacter } from './storage.js';
 import { esc, openModal, closeModal, toast } from './ui.js';
 import { roll } from './dice.js';
+import { fillLevelFeatures } from './srd.js';
 
 const STANDARD = [15, 14, 13, 12, 10, 8];
 const PB_COST = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
@@ -232,7 +233,7 @@ export function undoLastLevel(c) {
 export function openLevelUp(c, onApply) {
   const before = derive(c);
   if (before.lvl >= 20) return toast('<strong>Livello 20 raggiunto</strong><div>Il tuo eroe è leggenda.</div>');
-  const lu = { classId: c.classes[0].id, hpMode: 'avg', hp: null, subclass: '', asiMode: 'asi2', asiA: '', asiB: '', featId: '', featChoice: '' };
+  const lu = { srdOpen: true, classId: c.classes[0].id, hpMode: 'avg', hp: null, subclass: '', asiMode: 'asi2', asiA: '', asiB: '', featId: '', featChoice: '' };
   const modal = openModal(`<header><h2>Avanzamento al livello ${before.lvl + 1}</h2><button class="icon-btn" data-close>✕</button></header><div class="body"></div><footer><button class="btn ghost" data-close>Annulla</button><button class="btn gold" data-apply>Conferma livello</button></footer>`);
   const body = modal.querySelector('.body');
   const options = multiclassOptions(c);
@@ -282,6 +283,7 @@ export function openLevelUp(c, onApply) {
           ${after.spell.cantripTier !== before.spell.cantripTier ? `<li><span style="color:var(--magic)">✧</span> I trucchetti a danno ora tirano ${after.spell.cantripTier} dadi</li>` : ''}
         </ul>
         ${nextAsi ? `<p class="muted">Prossimo aumento di caratteristica/talento come ${cl.name}: livello di classe ${nextAsi}.</p>` : ''}
+        <details class="srd-box" ${lu.srdOpen ? 'open' : ''}><summary>📜 Testi ufficiali SRD di ${esc(cl.name)} ${clsLevel} (D&amp;D 5e API)</summary><div id="lu-srd"></div></details>
       </div>
 
       ${needSub ? `<div class="step"><h3 data-n="4">${esc(cl.subclassLabel)}</h3>
@@ -307,6 +309,9 @@ export function openLevelUp(c, onApply) {
           }).join('')}</div>`}
       </div>` : ''}
     `;
+    const det = body.querySelector('.srd-box');
+    det.addEventListener('toggle', () => { lu.srdOpen = det.open; if (det.open) fillLevelFeatures(body.querySelector('#lu-srd'), lu.classId, clsLevel, lu.subclass || existing?.subclass); });
+    if (lu.srdOpen) fillLevelFeatures(body.querySelector('#lu-srd'), lu.classId, clsLevel, lu.subclass || existing?.subclass);
   }
 
   modal.addEventListener('click', (e) => {

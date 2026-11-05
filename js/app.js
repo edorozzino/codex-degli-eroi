@@ -6,6 +6,10 @@ import { AB, mod, fmt, derive, totalLevel, featAvailability, casterEntries } fro
 import { loadAll, saveAll, uid, exportJSON, defaultAppearance } from './storage.js';
 import { esc, openModal, closeModal, doRoll, toast, getRollHistory, onRoll } from './ui.js';
 import { openCreateWizard, openLevelUp, undoLastLevel } from './wizards.js';
+import { openSpellBrowser, openSpellDetail, openWildShape, openClassFeatures, renderSrdGlossary } from './srd.js';
+import { scaledDice, clearCache } from './api.js';
+
+const cName = (x) => (typeof x === 'string' ? x : x?.name || '');
 
 const XP = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
 const NOTE_TAGS = ['Sessione', 'PNG', 'Luogo', 'Missione', 'Bottino', 'Segreto', 'Altro'];
@@ -150,7 +154,7 @@ function tabSheet(el, c, d) {
         <label class="field"><span>Linguaggi e strumenti</span><textarea data-bind="languages" rows="2">${esc(c.languages)}</textarea></label>
         <label class="field" style="margin-top:6px"><span>Equipaggiamento e monete</span><textarea data-bind="equipment" rows="3">${esc(c.equipment)}</textarea></label>
       </div>
-      <div class="panel"><h3>Privilegi e tratti</h3>
+      <div class="panel"><div class="row between"><h3 style="margin:0">Privilegi e tratti</h3><button class="btn small ghost" data-action="class-features">📜 Testi SRD</button></div>
         <h4>Razza</h4><ul class="list feature-list">${[...(d.race?.traits || []), ...(d.sub?.traits || [])].map(t => `<li>${esc(t)}</li>`).join('')}</ul>
         <h4 style="margin-top:10px">Classi</h4><ul class="list feature-list">${featuresByClass}</ul>
         ${d.feats.length ? `<h4 style="margin-top:10px">Talenti</h4><ul class="list feature-list">${d.feats.map(f => `<li><span class="lvl">Liv. ${f.level}</span><b>${esc(f.name)}</b>${f.choice ? ` (${ABILITY_BY_ID[f.choice].short})` : ''} — <small>${esc(f.desc)}</small></li>`).join('')}</ul>` : ''}
@@ -181,7 +185,8 @@ function tabMagic(el, c, d) {
               <input type="number" min="1" style="width:70px" id="pool-${esc(r.key)}" placeholder="qtà"><button class="btn small ghost" data-pool="${esc(r.key)}">Usa</button></div>`
               : `<div class="pips">${Array.from({ length: r.max }, (_, i) => `<button class="pip ${i < u ? 'used' : ''}" data-respip="${esc(r.key)}:${i}" title="${i < u ? 'Usato' : 'Disponibile'}"></button>`).join('')}</div>`}
             ${r.die ? `<button class="btn small ghost" data-roll="${r.die.startsWith('d') ? '1' + r.die : r.die}" data-label="${esc(r.name)}">🎲 ${esc(r.die)}</button>` : ''}
-            ${r.info ? `<small class="muted">${esc(r.info)}</small>` : ''}</div>`;
+            ${r.info ? `<small class="muted">${esc(r.info)}</small>` : ''}
+            ${r.id === 'forma' ? '<div style="margin-top:6px"><button class="btn small gold" data-action="wild-shape">🐺 Bestie disponibili (SRD)</button></div>' : ''}</div>`;
         }).join('') || '<p class="muted">Nessuna risorsa speciale a questo livello.</p>'}</div>
       </div>
       ${sp.isCaster ? `<div class="panel"><h3>Incantatore</h3>
@@ -205,15 +210,17 @@ function tabMagic(el, c, d) {
         ${cantripSources.length ? `<small class="muted">Da: ${esc(cantripSources.join(', '))}${raceCantripNames.length ? ' + razza' : ''}</small>` : ''}
         <ul class="list" style="margin-top:6px">
           ${raceCantripNames.map(n => `<li>✧ ${esc(n)} <small class="muted">(${esc(d.race.name)})</small></li>`).join('')}
-          ${ownCantrips.map((n, i) => `<li>✧ ${esc(n)}<button class="icon-btn" style="margin-left:auto" data-action="del-cantrip" data-i="${i}">✕</button></li>`).join('')}
+          ${ownCantrips.map((n, i) => `<li>✧ ${spellNameHtml(n)}${n?.dmgChar ? ` <small class="muted">${esc(scaledDice(n.dmgChar, d.lvl))} ${esc(n.dmgType || '')}</small>` : ''}<button class="icon-btn" style="margin-left:auto" data-action="del-cantrip" data-i="${i}">✕</button></li>`).join('')}
         </ul>
         ${ownCantrips.length < classCantripMax || raceCantripNames.some(n => /scelta/.test(n)) ? `<div class="row" style="margin-top:6px"><input id="new-cantrip" placeholder="Nome trucchetto (es. Fiamma sacra)" style="flex:1"><button class="btn small" data-action="add-cantrip">+</button></div>` : '<small class="ok">Trucchetti al completo.</small>'}
+        <div class="row" style="margin-top:8px"><button class="btn small gold" data-action="spell-browser">📚 Scegli dal grimorio SRD</button></div>
       </div>
       ${spellsMax || sp.slots.length || sp.pact ? `<div class="panel"><div class="row between"><h3 style="margin:0">Incantesimi</h3><span class="badge blue">${(c.spells || []).filter(s => s.prepared).length} preparati · max ${spellsMax}</span></div>
         <div class="table-wrap"><table class="table"><tr><th>Prep.</th><th>Nome</th><th>Liv.</th><th></th></tr>
-          ${(c.spells || []).slice().sort((a, b) => a.level - b.level).map(s => `<tr><td><input type="checkbox" data-spellprep="${s.id}" ${s.prepared ? 'checked' : ''}></td><td>${esc(s.name)}</td><td>${s.level}°</td><td><button class="icon-btn" data-action="del-spell" data-id="${s.id}">✕</button></td></tr>`).join('')}
+          ${(c.spells || []).slice().sort((a, b) => a.level - b.level).map(s => `<tr><td><input type="checkbox" data-spellprep="${s.id}" ${s.prepared ? 'checked' : ''}></td><td>${spellNameHtml(s)}${s.concentration ? ' <small class="muted">(C)</small>' : ''}${s.school ? `<br><small class="muted">${esc(s.school)}</small>` : ''}</td><td>${s.level}°</td><td><button class="icon-btn" data-action="del-spell" data-id="${s.id}">✕</button></td></tr>`).join('')}
         </table></div>
         <div class="row" style="margin-top:6px"><input id="new-spell" placeholder="Nome incantesimo" style="flex:1"><select id="new-spell-lv">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => `<option value="${l}">${l}°</option>`).join('')}</select><button class="btn small" data-action="add-spell">+</button></div>
+        <div class="row" style="margin-top:8px"><button class="btn small gold" data-action="spell-browser">📚 Sfoglia incantesimi SRD della tua classe</button></div>
       </div>` : ''}` : `<div class="panel"><h3>Magia</h3><p class="muted">Questo personaggio non lancia incantesimi. Diventerà un incantatore con una classe magica in multiclasse, con sottoclassi come <i>Cavaliere mistico</i> o <i>Mistificatore arcano</i>, o con il talento <i>Iniziato alla magia</i>.</p></div>`}
     </div>
   </div>`;
@@ -294,6 +301,7 @@ function tabDice(el, c, d) {
         <h4 style="margin-top:8px">Armi</h4><ul class="list">${d.attacks.map(a => `<li><span>${esc(a.name)}</span><span class="val" style="font-family:var(--font-body)">
           <button class="btn small ghost" data-roll="1d20${fmt(a.toHit)}" data-label="Attacco: ${esc(a.name)}">d20${fmt(a.toHit)}</button>
           <button class="btn small ghost" data-roll="${esc(a.damage)}" data-label="Danni: ${esc(a.name)}">${esc(a.damage)}</button></span></li>`).join('') || '<li class="muted">Nessuna arma</li>'}</ul>
+        ${spellDiceHtml(c, d)}
         ${d.spell.casters.length ? `<h4 style="margin-top:8px">Magia</h4><ul class="list">${d.spell.casters.map(x => `<li>${esc(x.name)}<span class="val" style="font-family:var(--font-body)">CD ${x.dc} · <button class="btn small ghost" data-roll="1d20${fmt(x.attack)}" data-label="Attacco con incantesimo">d20${fmt(x.attack)}</button></span></li>`).join('')}</ul>` : ''}
       </div>
     </div>
@@ -303,6 +311,22 @@ function tabDice(el, c, d) {
       <ul class="list"><li><b>d20</b> attacchi, prove e tiri salvezza</li><li><b>Dado vita</b> recupero PF nel riposo breve (+COS)</li><li><b>Critico</b> raddoppia i dadi di danno (non i modificatori)</li><li><b>4d6kh3</b> generazione caratteristiche (tieni i 3 migliori)</li></ul>
     </div>
   </div>`;
+}
+function spellNameHtml(x) {
+  const n = cName(x);
+  return x?.index ? `<button class="linkish" data-action="spell-info" data-index="${esc(x.index)}" title="Dettagli SRD">${esc(n)}</button>` : esc(n);
+}
+function spellDiceHtml(c, d) {
+  const caster = d.spell.casters[0];
+  const m = caster ? d.m[caster.ability] : 0;
+  const clean = (v) => String(v).replace(/\s*\+\s*MOD/i, m ? fmt(m) : '').replace(/\s+/g, '');
+  const rows = [];
+  for (const x of c.cantrips.filter(k => k?.dmgChar)) { const v = scaledDice(x.dmgChar, d.lvl); rows.push(`<li>${esc(x.name)} <small class="muted">trucchetto</small><span class="val" style="font-family:var(--font-body)"><button class="btn small ghost" data-roll="${esc(clean(v))}" data-label="${esc(x.name)}">${esc(v)} ${esc(x.dmgType || '')}</button></span></li>`); }
+  for (const x of c.spells.filter(k => k.dmgSlot || k.heal)) {
+    const tbl = x.dmgSlot || x.heal; const base = tbl[x.level] || Object.values(tbl)[0];
+    rows.push(`<li>${esc(x.name)} <small class="muted">${x.level}° · ${x.heal ? 'cura' : esc(x.dmgType || '')}</small><span class="val" style="font-family:var(--font-body)"><button class="btn small ghost" data-roll="${esc(clean(base))}" data-label="${esc(x.name)}">${esc(clean(base))}</button></span></li>`);
+  }
+  return rows.length ? `<h4 style="margin-top:8px">Incantesimi (dati SRD)</h4><ul class="list">${rows.join('')}</ul>` : '';
 }
 const historyHtml = (hist) => hist.map(h => `<div class="gloss-item"><span style="float:right;font-family:var(--font-head);font-size:1.2rem" class="${h.crit === 'crit' ? 'ok' : h.crit === 'fumble' ? 'warn' : ''}">${h.total}</span><strong>${esc(h.label || h.expr)}</strong><br><small class="muted">${esc(h.expr)} → ${esc(h.detail)} · ${h.time.toLocaleTimeString('it')}</small></div>`).join('') || '<p class="muted">Ancora nessun tiro. Clicca su qualsiasi valore della scheda per tirare.</p>';
 onRoll(() => { const h = document.getElementById('roll-history'); if (h) h.innerHTML = historyHtml(getRollHistory()); });
@@ -427,7 +451,7 @@ function disposeViewer() { if (viewer) { viewer.dispose(); viewer = null; } }
 
 // ---------- Glossario ----------
 function openGlossary(section = 'abilita') {
-  const sections = [['abilita', 'Abilità'], ['caratteristiche', 'Caratteristiche'], ['armature', 'Armature'], ['armi', 'Armi'], ['condizioni', 'Condizioni'], ['regole', 'Regole'], ['talenti', 'Talenti'], ['classi', 'Classi'], ['razze', 'Razze']];
+  const sections = [['abilita', 'Abilità'], ['caratteristiche', 'Caratteristiche'], ['armature', 'Armature'], ['armi', 'Armi'], ['condizioni', 'Condizioni'], ['regole', 'Regole'], ['talenti', 'Talenti'], ['classi', 'Classi'], ['razze', 'Razze'], ['srd-spells', '✦ Incantesimi SRD'], ['srd-items', '✦ Oggetti magici SRD'], ['srd-monsters', '✦ Mostri SRD']];
   let q = '';
   const modal = openModal(`<header><h2>📖 Glossario</h2><button class="icon-btn" data-close>✕</button></header><div class="body"><div class="row" style="margin-bottom:10px"><input id="gloss-q" placeholder="Cerca nel glossario…" style="flex:1"></div><nav class="tabs" id="gloss-tabs"></nav><div id="gloss-body"></div></div>`);
   const match = (...s) => !q || s.join(' ').toLowerCase().includes(q);
@@ -447,6 +471,7 @@ function openGlossary(section = 'abilita') {
     if (section === 'talenti') b.innerHTML = FEATS.filter(f => match(f.name, f.desc)).map(f => item(f.name, f.desc, [f.asi ? `+1 ${f.asi.choose.map(a => ABILITY_BY_ID[a].short).join('/')}` : '', f.prereq ? 'con requisiti' : ''].filter(Boolean).join(' · '))).join('');
     if (section === 'classi') b.innerHTML = CLASSES.filter(cl => match(cl.name, cl.subclasses.join(' '))).map(cl => item(cl.name, `Dado vita d${cl.hitDie}. TS: ${cl.saves.map(a => ABILITY_BY_ID[a].short).join(', ')}. Armature: ${cl.armor.join(', ') || 'nessuna'}. Armi: ${cl.weapons}. ${cl.subclassLabel} al livello ${cl.subclassLevel}: ${cl.subclasses.join(', ')}. ASI ai livelli ${cl.asi.join(', ')}.`, cl.spellcasting ? '✦ incantatore' : '')).join('');
     if (section === 'razze') b.innerHTML = RACES.filter(r => match(r.name, r.traits.join(' '))).map(r => item(r.name, `${Object.entries(r.bonus).map(([a, v]) => `${ABILITY_BY_ID[a].short} +${v}`).join(', ')}. Taglia ${r.size}, velocità ${r.speed} m. ${r.traits.join('; ')}. Sottorazze: ${r.subraces.map(s => s.name).join(', ')}.`)).join('');
+    if (section.startsWith('srd-')) return renderSrdGlossary(b, section, q, cur() ? { d: derive(cur()), caster: derive(cur()).spell.casters[0] } : null);
     if (!b.innerHTML.trim()) b.innerHTML = '<p class="muted">Nessun risultato.</p>';
   }
   modal.addEventListener('click', (e) => {
@@ -454,7 +479,7 @@ function openGlossary(section = 'abilita') {
     if (t.hasAttribute('data-close')) return closeModal();
     section = t.dataset.gsec; draw();
   });
-  modal.querySelector('#gloss-q').addEventListener('input', (e) => { q = e.target.value.toLowerCase().trim(); draw(); });
+  let qt; modal.querySelector('#gloss-q').addEventListener('input', (e) => { q = e.target.value.toLowerCase().trim(); clearTimeout(qt); qt = setTimeout(draw, section.startsWith('srd-') ? 250 : 0); });
   draw();
 }
 
@@ -524,6 +549,11 @@ document.addEventListener('click', (e) => {
       for (const die of Object.keys(c.hitDiceUsed).sort((x, y) => y - x)) { const g = Math.min(rec, c.hitDiceUsed[die]); c.hitDiceUsed[die] -= g; rec -= g; }
       persist(); renderMain(); toast('<strong>Riposo lungo</strong><div>PF, slot, risorse e metà dei dadi vita recuperati.</div>');
     },
+    'spell-browser': () => openSpellBrowser(c, derive(c), () => { persist(); renderMain(); }),
+    'spell-info': () => openSpellDetail(t.dataset.index, c, derive(c)),
+    'wild-shape': () => openWildShape(c),
+    'class-features': () => openClassFeatures(c),
+    'clear-api-cache': () => { clearCache(); toast('<strong>Cache API svuotata</strong>'); },
     'add-cantrip': () => { const v = $('#new-cantrip').value.trim(); if (v) { c.cantrips.push(v); persist(); renderMain(); } },
     'del-cantrip': () => { c.cantrips.splice(+t.dataset.i, 1); persist(); renderMain(); },
     'add-spell': () => { const v = $('#new-spell').value.trim(); if (v) { c.spells.push({ id: uid(), name: v, level: +$('#new-spell-lv').value, prepared: true }); persist(); renderMain(); } },
