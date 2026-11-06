@@ -7,7 +7,20 @@ export function openModal(html, { onClose } = {}) {
   const root = document.getElementById('modal-root');
   root.innerHTML = `<div class="modal-backdrop" data-modal-backdrop><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
   const bd = root.firstElementChild;
-  bd.addEventListener('mousedown', (e) => { if (e.target === bd) closeModal(); });
+  // Chiude cliccando fuori dalla finestra, ma solo con un clic vero:
+  // non trascinando la barra di scorrimento (che appartiene allo sfondo),
+  // non scorrendo col dito o con un trascinamento iniziato dentro la finestra.
+  let downOnBackdrop = null;
+  bd.addEventListener('pointerdown', (e) => {
+    const onScrollbar = e.clientX >= bd.clientWidth || e.clientY >= bd.clientHeight;
+    downOnBackdrop = e.target === bd && !onScrollbar && e.isPrimary ? { x: e.clientX, y: e.clientY, t: Date.now() } : null;
+  });
+  bd.addEventListener('click', (e) => {
+    const d = downOnBackdrop; downOnBackdrop = null;
+    if (!d || e.target !== bd) return;
+    const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y);
+    if (moved < 10 && Date.now() - d.t < 800) closeModal();
+  });
   root._onClose = onClose;
   return bd.querySelector('.modal');
 }
