@@ -110,6 +110,13 @@ export const RACES = [
     spells: [{ level: 3, name: 'Intimorire infernale (2° liv.)', per: 'riposo lungo' }, { level: 5, name: 'Oscurità', per: 'riposo lungo' }],
     subraces: [{ id: 'tiefling-base', name: 'Tiefling', bonus: {} }],
   },
+  {
+    id: 'personalizzata', name: 'Altra / non specificata', size: 'Media', speed: 9, height: 1.75, build: 1.0,
+    bonus: {},
+    traits: ['Razza non specificata: i bonus razziali sono già inclusi nei punteggi base'],
+    languages: ['Comune'],
+    subraces: [{ id: 'personalizzata-base', name: 'Altra razza', bonus: {} }],
+  },
 ];
 
 export const RACE_BY_ID = Object.fromEntries(RACES.map(r => [r.id, r]));

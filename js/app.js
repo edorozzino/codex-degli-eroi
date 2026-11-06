@@ -8,11 +8,12 @@ import { esc, openModal, closeModal, doRoll, toast, getRollHistory, onRoll } fro
 import { openCreateWizard, openLevelUp, undoLastLevel } from './wizards.js';
 import { openSpellBrowser, openSpellDetail, openWildShape, openClassFeatures, renderSrdGlossary } from './srd.js';
 import { scaledDice, clearCache } from './api.js';
+import { seedPresets, resetPreset, PRESETS, isKaelAppFormat, fromKaelApp } from './importers.js';
 
 const cName = (x) => (typeof x === 'string' ? x : x?.name || '');
 
 const XP = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
-const NOTE_TAGS = ['Sessione', 'PNG', 'Luogo', 'Missione', 'Bottino', 'Segreto', 'Altro'];
+const NOTE_TAGS = ['Sessione', 'PNG', 'Luogo', 'Missione', 'Bottino', 'Segreto', 'Strategia', 'Altro'];
 const TABS = [['scheda', 'Scheda'], ['magia', 'Magia & Risorse'], ['avanzamento', 'Avanzamento'], ['dadi', 'Dadi'], ['note', 'Note'], ['allineamento', 'Allineamento'], ['aspetto', 'Aspetto 3D']];
 
 const state = { chars: loadAll(), currentId: null, tab: 'scheda', rollMode: 'normal', noteFilter: '', editingNote: null };
@@ -40,7 +41,9 @@ function renderList() {
   el.innerHTML = `<h4>Personaggi (${state.chars.length})</h4>` + (state.chars.map(c => {
     const d = derive(c);
     return `<button class="char-card ${c.id === state.currentId ? 'active' : ''}" data-select="${c.id}"><strong>${esc(c.name)}</strong><span>${esc(raceLine(c, d))} · Liv. ${d.lvl}</span><br><span>${esc(c.classes.map(x => CLASS_BY_ID[x.id].name + ' ' + x.level).join(' / '))}</span></button>`;
-  }).join('') || '<p class="muted">Nessuna scheda. Crea il tuo primo eroe!</p>');
+  }).join('') || '<p class="muted">Nessuna scheda. Crea il tuo primo eroe!</p>')
+    + Object.entries(PRESETS).filter(([id]) => !state.chars.some(c => c.presetId === id))
+      .map(([id, p]) => `<button class="btn small ghost preset-btn" data-action="add-preset" data-id="${id}">+ Scheda base: ${esc(p.name)}</button>`).join('');
 }
 
 function renderMain() {
@@ -56,7 +59,7 @@ function renderMain() {
     <div class="char-header">
       <div>
         <input class="name-input" data-bind="name" value="${esc(c.name)}" aria-label="Nome del personaggio">
-        <div class="subtitle">${esc(raceLine(c, d))} · ${esc(classLine(c))} · ${esc(BACKGROUNDS.find(b => b.id === c.background)?.name || '')}</div>
+        <div class="subtitle">${[raceLine(c, d), classLine(c), BACKGROUNDS.find(b => b.id === c.background)?.name].filter(Boolean).map(esc).join(' · ')}</div>
         <div class="badges" style="margin-top:6px">
           <span class="badge gold">Livello ${d.lvl}</span><span class="badge">Competenza ${fmt(d.prof)}</span>
           <span class="badge">${esc(al?.name || '')}</span>
@@ -68,6 +71,7 @@ function renderMain() {
         <button class="btn gold" data-action="level-up" ${d.lvl >= 20 ? 'disabled' : ''}>▲ Sali di livello</button>
         <button class="btn ghost" data-action="export">⇩ Esporta</button>
         <button class="btn ghost" data-action="duplicate">⧉ Duplica</button>
+        ${c.presetId ? '<button class="btn ghost" data-action="reset-preset" title="Riporta la scheda ai valori base">↺ Ripristina base</button>' : ''}
         <button class="btn ghost" data-action="delete">🗑</button>
       </div>
     </div>
@@ -314,7 +318,9 @@ function tabDice(el, c, d) {
 }
 function spellNameHtml(x) {
   const n = cName(x);
-  return x?.index ? `<button class="linkish" data-action="spell-info" data-index="${esc(x.index)}" title="Dettagli SRD">${esc(n)}</button>` : esc(n);
+  const tip = x?.desc ? esc(x.desc) : 'Dettagli SRD';
+  const desc = x?.desc ? `<br><small class="muted spell-desc">${esc(x.desc)}</small>` : '';
+  return `<span class="spell-name">${x?.index ? `<button class="linkish" data-action="spell-info" data-index="${esc(x.index)}" title="${tip}">${esc(n)}</button>` : `<span title="${tip}">${esc(n)}</span>`}${desc}</span>`;
 }
 function spellDiceHtml(c, d) {
   const caster = d.spell.casters[0];
@@ -523,6 +529,15 @@ document.addEventListener('click', (e) => {
   const actions = {
     'new-char': () => openCreateWizard((nc) => { state.chars.push(nc); state.currentId = nc.id; state.tab = 'scheda'; persist(); render(); toast(`<strong>${esc(nc.name)}</strong><div>è pronto all'avventura.</div>`); }),
     'open-glossary': () => openGlossary(),
+    'reset-preset': () => {
+      if (!confirm(`Ripristinare la scheda base di ${c.name}? Tutte le modifiche (PF, risorse, note, livelli) andranno perse.`)) return;
+      const i = state.chars.indexOf(c); state.chars[i] = resetPreset(c); persist(); render();
+      toast(`<strong>${esc(state.chars[i].name)}</strong><div>Scheda base ripristinata.</div>`);
+    },
+    'add-preset': () => {
+      const n = PRESETS[t.dataset.id].build(); state.chars.push(n); state.currentId = n.id; state.tab = 'scheda'; persist(); render();
+      toast(`<strong>${esc(n.name)}</strong><div>Scheda base caricata.</div>`);
+    },
     'level-up': () => openLevelUp(c, (n, info) => {
       Object.assign(c, n); c.hp.current = (c.hp.current ?? null) === null ? null : c.hp.current + info.hpGain + derive(c).m.con;
       persist(); render();
@@ -627,8 +642,9 @@ function importFile(input) {
   f.text().then(txt => {
     const data = JSON.parse(txt);
     const list = Array.isArray(data) ? data : [data];
-    for (const ch of list) {
-      if (!ch.classes || !ch.raceId) throw new Error('File non valido');
+    for (let ch of list) {
+      if (isKaelAppFormat(ch)) ch = fromKaelApp(ch); // salvataggio .txt della scheda di Kael
+      else if (!ch.classes || !ch.raceId) throw new Error('File non valido: usa un file esportato dal Codex o il .txt della scheda di Kael');
       ch.id = uid(); ch.appearance = { ...defaultAppearance(), ...(ch.appearance || {}) };
       state.chars.push(ch); state.currentId = ch.id;
     }
@@ -641,6 +657,12 @@ function importFile(input) {
 for (const c of state.chars) {
   c.used ??= {}; c.slotsUsed ??= {}; c.hitDiceUsed ??= {}; c.notes ??= []; c.alignmentMoments ??= []; c.weapons ??= []; c.cantrips ??= []; c.spells ??= [];
   c.deathSaves ??= { ok: 0, ko: 0 }; c.appearance = { ...defaultAppearance(), ...(c.appearance || {}) }; c.asiLog ??= [];
+}
+
+// Schede base (es. Kael): caricate una volta in questo browser
+{
+  const added = seedPresets(state.chars);
+  if (added.length) { saveAll(state.chars); if (!state.currentId) state.currentId = added[0].id; }
 }
 
 render();

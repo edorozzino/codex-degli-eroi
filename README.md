@@ -18,6 +18,13 @@ Applicazione web (HTML + JavaScript, nessun build) per creare e gestire **più s
 - **Glossario**: abilità, caratteristiche, armature, armi, condizioni, regole, talenti, classi, razze, con ricerca.
 - **Anteprima 3D** (Three.js): modello generato da razza (altezza, corporatura, orecchie, corna, coda, zanne, barba, testa draconica), caratteristiche (FOR → spalle e braccia, COS → torso, DES → snellezza, CAR → portamento e rifiniture), classe (cappucci, mantelli, vesti, aure magiche), armatura e prima arma. Atmosfera cupa: luce di braciere tremolante, nebbia fredda, braci, bloom, grading desaturato, vignettatura e grana. Esporta il ritratto in PNG.
 
+## Scheda base di Kael
+
+Al primo avvio in un browser l'app carica la scheda di **Kael (Foglia Umida)**, Druido 5 (Circolo della Luna) / Monaco 2, presa dalla sua scheda originale (`js/data/presets.js`), con incantesimi collegati all'SRD, strategie, forme selvatiche e diario nelle Note.
+- **↺ Ripristina base** (nell'intestazione della scheda) la riporta ai valori iniziali.
+- Se la elimini non ricompare da sola: c'è il pulsante **+ Scheda base** nella lista dei personaggi.
+- **⇪ Importa** accetta anche i file `.txt` salvati con 💾 Salva dalla scheda originale di Kael e li converte.
+
 ## Dati online: D&D 5e API
 
 L'app usa la **[D&D 5e API](https://www.dnd5eapi.co)** (dati SRD 5.1, gratuita, senza chiave, CORS aperto) per:
@@ -56,6 +63,7 @@ js/api.js          client D&D 5e API con cache
 js/srd.js          grimorio, Forma selvatica, mostri, privilegi SRD
 js/dice.js         parser e lanciatore di dadi
 js/storage.js      salvataggio ed esportazione
+js/importers.js    schede base e import dal formato della scheda di Kael
 js/data/           razze, classi, talenti, glossario
 vendor/three/      Three.js r160
 ```
