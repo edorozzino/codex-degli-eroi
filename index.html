@@ -9,6 +9,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1c1915">
+  <link rel="icon" type="image/png" href="icons/favicon.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Codex Eroi">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script type="importmap">
     { "imports": { "three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
   </script>
@@ -19,6 +27,7 @@
     <nav class="top-actions">
       <button class="btn" data-action="new-char">+ Nuovo personaggio</button>
       <button class="btn ghost" data-action="open-glossary">📖 Glossario</button>
+      <button class="btn gold" id="install-btn" data-offline="install" hidden>📲 Installa</button>
       <label class="btn ghost file-btn">⇪ Importa<input type="file" accept="application/json,.json,.txt" id="import-file" hidden></label>
     </nav>
   </header>
@@ -26,6 +35,8 @@
     <aside class="sidebar" id="char-list"></aside>
     <main id="main"></main>
   </div>
+  <footer class="app-footer"><div id="offline-status" class="offline-status" aria-live="polite"></div>
+    <small class="muted">Le schede sono salvate in questo browser. Usa ⇩ Esporta per un backup da spostare su altri dispositivi.</small></footer>
   <div id="modal-root"></div>
   <div id="roll-log" class="roll-log" aria-live="polite"></div>
   <script type="module" src="js/app.js"></script>

@@ -25,6 +25,13 @@ Al primo avvio in un browser l'app carica la scheda di **Kael (Foglia Umida)**, 
 - Se la elimini non ricompare da sola: c'è il pulsante **+ Scheda base** nella lista dei personaggi.
 - **⇪ Importa** accetta anche i file `.txt` salvati con 💾 Salva dalla scheda originale di Kael e li converte.
 
+## Offline e installazione
+
+- Un **service worker** (`sw.js`) salva l'app nella cache del browser: dopo la prima visita funziona anche **senza connessione** (schede, dadi, 3D, glossario). Online carica sempre l'ultima versione.
+- I dati SRD già consultati (incantesimi, mostri, immagini) restano in cache e sono disponibili offline.
+- L'app chiede al browser la **memoria persistente**, così le schede non vengono cancellate per liberare spazio. Lo stato è in fondo alla pagina, con il pulsante "🔒 Rendi persistente" se non è stata concessa.
+- È **installabile** come app (📲 Installa su Chrome/Edge/Android; su iPhone: Condividi → Aggiungi a Home).
+
 ## Dati online: D&D 5e API
 
 L'app usa la **[D&D 5e API](https://www.dnd5eapi.co)** (dati SRD 5.1, gratuita, senza chiave, CORS aperto) per:
@@ -63,9 +70,12 @@ js/api.js          client D&D 5e API con cache
 js/srd.js          grimorio, Forma selvatica, mostri, privilegi SRD
 js/dice.js         parser e lanciatore di dadi
 js/storage.js      salvataggio ed esportazione
+js/offline.js      service worker, memoria persistente e installazione
 js/importers.js    schede base e import dal formato della scheda di Kael
 js/data/           razze, classi, talenti, glossario
 vendor/three/      Three.js r160
+sw.js              service worker (cache offline)
+manifest.webmanifest, icons/  installazione come app
 ```
 
 ## Note

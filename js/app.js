@@ -8,6 +8,7 @@ import { esc, openModal, closeModal, doRoll, toast, getRollHistory, onRoll } fro
 import { openCreateWizard, openLevelUp, undoLastLevel } from './wizards.js';
 import { openSpellBrowser, openSpellDetail, openWildShape, openClassFeatures, renderSrdGlossary } from './srd.js';
 import { scaledDice, clearCache } from './api.js';
+import { initOffline } from './offline.js';
 import { seedPresets, resetPreset, PRESETS, isKaelAppFormat, fromKaelApp } from './importers.js';
 
 const cName = (x) => (typeof x === 'string' ? x : x?.name || '');
@@ -666,4 +667,5 @@ for (const c of state.chars) {
 }
 
 render();
+initOffline();
 export { casterEntries };
